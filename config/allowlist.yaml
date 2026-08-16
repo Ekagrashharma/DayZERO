@@ -1,0 +1,16 @@
+autonomous:
+  - rerun_test
+  - merge_docs_pr
+  - draft_slack_reply
+  - snooze_ticket
+
+always_escalate:
+  - authentication
+  - production
+  - billing
+  - security
+  - destructive
+  - permission_change
+
+confidence_threshold: 0.80
+max_reasoning_iterations: 3
