@@ -1,59 +1,104 @@
 # Day Zero
 
-Autonomous morning-ops for developers.
+**An Autonomous Morning-Ops Agent for Developers**
 
-Day Zero is a hackathon MVP that runs a bounded agent workflow over developer signals, performs safe reversible actions autonomously, escalates risky or ambiguous actions, stores execution state in Firestore, and produces a concise morning briefing.
+Day Zero runs the developer's first fifteen minutes overnight. It gathers signals from GitHub, Calendar, Slack and tickets, normalizes them, triages noise, reasons about what matters, performs only safe reversible work, escalates risky or ambiguous work, and produces a ranked three-item morning briefing.
 
-## Hackathon Stack
-
-- Gemini 3.5+ via Gemini API or Vertex AI
-- Google Agent Development Kit (ADK)
-- Google Gen AI SDK
-- Google Cloud Run
-- Firestore
-- FastAPI + Python backend
-- Next.js + TypeScript frontend
-
-## MVP Workflow
+## Architecture
 
 ```text
-Signals
-  -> Normalize
-  -> Triage
-  -> Gemini + ADK reasoning
-  -> Safety policy
-  -> Autonomous / Escalate
-  -> Action executor
-  -> Firestore
-  -> Morning briefing
+GitHub / Calendar / Slack / Tickets
+                |
+             Ingest
+                |
+            Normalize
+                |
+              Triage
+                |
+       Gemini reasoning layer
+                |
+       Structured Decision
+                |
+          Safety Router
+          /            \
+ Autonomous            Escalate
+     |                    |
+ Action Executor     Human approval
+          \            /
+             Firestore
+                |
+         Morning briefing
 ```
 
-The agent has a hard maximum of three reasoning iterations per signal.
+The reasoning layer never receives write credentials and never executes external APIs directly. Its output is a structured intent. The action layer is the only layer allowed to perform writes and rejects anything outside its explicit allow-list.
 
-## Demo Scenario
+## Agency model
 
-The deterministic demo workspace contains:
+1. **Orchestrated workflow** — fixed nightly pipeline.
+2. **Fixed-iteration agency** — maximum 3 reasoning/tool-call iterations per signal.
+3. **Human-in-the-loop** — risky, restricted or low-confidence actions are escalated.
+4. **Preference learning** — human approvals, overrides and post-action flags tune per-category confidence thresholds without fine-tuning model weights.
 
-1. A flaky CI failure that is investigated and safely rerun.
-2. A low-risk documentation PR that can be handled autonomously.
-3. An authentication PR that is blocked by policy and escalated regardless of confidence.
-4. A calendar conflict that requires human attention.
-5. A Slack status message for which the agent prepares a draft reply.
+## MVP scope
 
-External GitHub, Calendar, Slack and ticket systems are represented through provider interfaces and demo adapters in the MVP. The AI reasoning path itself uses the real configured Gemini model.
+- One repository
+- One calendar
+- One Slack channel
+- One ticket source
+- Autonomous flaky-test rerun
+- Autonomous low-risk documentation work
+- Authentication, production, billing and security actions always escalate
+- Three-sentence morning briefing
+- Inspectable execution trace
+- Firestore persistence
 
-## Safety Boundary
+## Core contracts
 
-The model never executes actions directly. Gemini produces a structured decision. A separate policy router validates the action against an explicit allow-list and permanent escalation rules.
+- `src/core/types.ts` — shared `Signal`, `Decision` and `ActionIntent` contracts.
+- `src/safety/policy.ts` — fail-closed safety boundary.
+- `config/allowlist.yaml` — explicit autonomous and permanent-escalation policy.
 
-Authentication, production, billing, security and destructive actions always escalate.
+## Planned stack
 
-Invalid or unknown model output fails closed and is escalated.
+| Layer | Technology |
+| --- | --- |
+| Trigger | Cloud Scheduler or GitHub Actions cron |
+| Ingestion | GitHub, Google Calendar, Slack APIs |
+| Service | Node.js + TypeScript |
+| Reasoning | Gemini via Google Gen AI SDK |
+| Orchestration | Google ADK or fixed-step controller |
+| Action | Isolated executor service |
+| State | Firestore |
+| Secrets | Google Secret Manager / local `.env` |
+| Delivery | Slack DM + web briefing card |
+| Observability | OpenTelemetry + structured run logs |
 
-## Repository Status
+## Safety defaults
 
-Initial production plan and hackathon MVP architecture.
+- No production changes.
+- No billing or money actions.
+- No authentication or security changes.
+- No destructive operations.
+- No permission changes.
+- Unknown actions fail closed.
+- Invalid structured model output is rejected.
+- Unresolved work after three iterations escalates.
 
-## Documentation
+## Demo
 
-See the project documentation and architecture materials in Notion and the attached Day Zero specification used as the source of truth for the MVP.
+The intended under-three-minute demo shows a flaky CI failure diagnosed and safely rerun, a low-risk documentation PR handled autonomously, an authentication PR escalated despite high model confidence, a calendar conflict surfaced, and a draft Slack response awaiting one-tap approval.
+
+## Development roadmap
+
+- [ ] Implement source adapters
+- [ ] Implement normalization and triage
+- [ ] Integrate Gemini + structured output
+- [ ] Add Google ADK orchestration
+- [ ] Implement isolated action executor
+- [ ] Add Firestore persistence
+- [ ] Build briefing API
+- [ ] Build dashboard
+- [ ] Add approval and override flow
+- [ ] Add eval harness
+- [ ] Add Cloud Run deployment
+- [ ] Add scheduled execution
